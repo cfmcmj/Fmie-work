@@ -39,12 +39,17 @@ cd "$WORK_DIR" || error_exit "无法进入 $WORK_DIR"
 # 克隆项目
 git clone https://github.com/cfmcmj/serv00-play2.git . || error_exit "克隆 serv00-play2 失败"
 
-# 检查仓库内容
-if [ ! -f install.sh ]; then
-  error_exit "主脚本 install.sh 缺失，请检查 https://github.com/cfmcmj/serv00-play2"
+# 检查主脚本（start.sh 或 install.sh）
+MAIN_SCRIPT=""
+if [ -f start.sh ]; then
+  MAIN_SCRIPT="start.sh"
+elif [ -f install.sh ]; then
+  MAIN_SCRIPT="install.sh"
+else
+  warn "主脚本（start.sh 或 install.sh）缺失，尝试继续处理 sun-panel"
 fi
 
-# 验证 sun-panel 目录
+# 检查 sun-panel 目录
 if [ ! -d sun-panel ]; then
   warn "sun-panel 目录缺失，可能已被仓库移除"
   warn "请检查 https://github.com/cfmcmj/serv00-play2 或手动安装 sun-panel"
@@ -62,10 +67,10 @@ if [ -d alist ]; then
   rm -rf alist 2>/dev/null || warn "无法删除 alist 目录，可能需要手动清理"
 fi
 
-# 修改 install.sh，移除 alist 相关逻辑
-if [ -f install.sh ]; then
-  sed -i '' '/alist/d' install.sh 2>/dev/null || warn "无法修改 install.sh 中的 alist 逻辑"
-  chmod +x install.sh
+# 修改主脚本，移除 alist 相关逻辑
+if [ -n "$MAIN_SCRIPT" ]; then
+  sed -i '' '/alist/d' "$MAIN_SCRIPT" 2>/dev/null || warn "无法修改 $MAIN_SCRIPT 中的 alist 逻辑"
+  chmod +x "$MAIN_SCRIPT"
 fi
 
 # 清理工作流
@@ -109,13 +114,11 @@ if [ -d sun-panel ] && [ -f sun-panel/install.sh ]; then
       warn "未找到 sun-panel 二进制文件，可能需手动运行 sun-panel/install.sh"
     fi
   fi
+elif [ -n "$MAIN_SCRIPT" ]; then
+  warn "sun-panel 模块不可用，尝试运行主脚本 $MAIN_SCRIPT"
+  bash "$MAIN_SCRIPT" || warn "主脚本 $MAIN_SCRIPT 执行失败，请检查日志或仓库内容"
 else
-  warn "sun-panel 模块不可用，尝试运行主 install.sh"
-  if [ -f install.sh ]; then
-    bash install.sh || warn "主 install.sh 执行失败，请检查日志或仓库内容"
-  else
-    error_exit "主 install.sh 不存在"
-  fi
+  error_exit "无法执行安装，缺少 sun-panel 和主脚本"
 fi
 
 # 清理 .git 目录

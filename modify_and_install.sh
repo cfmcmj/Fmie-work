@@ -3,12 +3,13 @@
 # 函数：打印错误并退出
 error_exit() {
   echo "错误：$1" >&2
+  echo "请检查 https://docs.serv00.com/ 或联系 Serv00 管理员：https://forum.serv00.com/" >&2
   exit 1
 }
 
 # 函数：检查命令是否存在
 check_command() {
-  command -v "$1" >/dev/null 2>&1 || error_exit "$1 未安装，请联系 VPS 管理员安装 $1"
+  command -v "$1" >/dev/null 2>&1 || error_exit "$1 未安装，请联系 Serv00 管理员安装 $1"
 }
 
 # 检查 FreeBSD 系统
@@ -20,7 +21,6 @@ fi
 check_command curl
 check_command git
 check_command sed
-check_command docker || echo "警告：Docker 未找到，sun-panel 可能无法运行"
 
 # 检查网络连接
 ping -c 1 github.com >/dev/null 2>&1 || error_exit "无法连接到 GitHub，请检查网络"
@@ -60,18 +60,39 @@ if command -v docker >/dev/null 2>&1; then
   # 检查端口冲突（假设 sun-panel 使用 8080）
   if netstat -an | grep -q ":8080.*LISTEN"; then
     echo "警告：端口 8080 已被占用，sun-panel 可能无法运行"
-    echo "请检查 sun-panel/docker-compose.yml 中的端口，或联系 VPS 管理员释放端口"
+    echo "请检查 sun-panel/docker-compose.yml 中的端口，或联系 Serv00 管理员"
   fi
 
-  # 执行 sun-panel 安装
+  # 执行 sun-panel 安装（Docker 模式）
   if [ -f sun-panel/install.sh ]; then
     bash sun-panel/install.sh || error_exit "sun-panel 安装失败，请检查 Docker 环境或日志：docker logs <container_name>"
   else
     error_exit "sun-panel/install.sh 不存在"
   fi
 else
-  echo "警告：Docker 未安装或不可用，sun-panel 无法运行"
-  echo "请联系 VPS 管理员确认 Docker 支持，或手动运行 sun-panel/install.sh"
+  # 尝试运行 sun-panel 二进制（无 Docker）
+  echo "警告：Docker 未安装，尝试直接运行 sun-panel 二进制"
+  if [ -f sun-panel/install.sh ]; then
+    bash sun-panel/install.sh || {
+      echo "警告：sun-panel/install.sh 执行失败，可能是二进制不兼容 FreeBSD"
+      echo "请检查是否需要 Linux 兼容层（linuxulator）或联系 Serv00 管理员"
+    }
+  else
+    error_exit "sun-panel/install.sh 不存在"
+  fi
+
+  # 检查二进制文件是否存在
+  if [ -f sun-panel/sun-panel ]; then
+    chmod +x sun-panel/sun-panel
+    # 检查二进制依赖（需要 linuxulator）
+    if ldd sun-panel/sun-panel >/dev/null 2>&1; then
+      ./sun-panel/sun-panel || error_exit "sun-panel 二进制运行失败，请检查依赖或联系 Serv00 管理员"
+    else
+      echo "警告：sun-panel 二进制不兼容 FreeBSD，可能需要 Linux 兼容层"
+    fi
+  else
+    echo "警告：未找到 sun-panel 二进制文件"
+  fi
 fi
 
 # 清理 .git 目录
@@ -86,5 +107,8 @@ if command -v docker >/dev/null 2>&1; then
   echo "如遇问题，查看日志："
   echo "  docker logs <container_name>"
 else
-  echo "未检测到 Docker，请手动检查 $WORK_DIR/sun-panel/install.sh 或联系 VPS 管理员。"
+  echo "未检测到 Docker，sun-panel 可能以二进制模式运行。"
+  echo "检查 $WORK_DIR/sun-panel 是否有可执行文件："
+  ls -l $WORK_DIR/sun-panel
+  echo "如需运行二进制，请确保 FreeBSD 的 Linux 兼容层已启用，或联系 Serv00 管理员。"
 fi

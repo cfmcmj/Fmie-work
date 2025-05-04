@@ -39,26 +39,33 @@ cd "$WORK_DIR" || error_exit "无法进入 $WORK_DIR"
 # 克隆项目
 git clone https://github.com/cfmcmj/serv00-play2.git . || error_exit "克隆 serv00-play2 失败"
 
+# 验证 sun-panel 目录
+if [ ! -d sun-panel ] || [ ! -f sun-panel/install.sh ] || [ ! -f sun-panel/docker-compose.yml ]; then
+  error_exit "sun-panel 模块不完整（缺少 sun-panel 目录、install.sh 或 docker-compose.yml），请检查 https://github.com/cfmcmj/serv00-play2"
+fi
+
 # 替换项目名称
 find . -type f -not -path "./.git/*" -exec sed -i '' 's/serv00-play/Fmie-work/g' {} \; 2>/dev/null || error_exit "替换项目名称失败"
 
-# 删除非 sun-panel 模块
-find . -maxdepth 1 -type d -not -name "sun-panel" -not -name "." -not -name ".git" -exec rm -rf {} \; 2>/dev/null || error_exit "删除非 sun-panel 模块失败"
+# 删除 alist 模块
+if [ -d alist ]; then
+  rm -rf alist 2>/dev/null || warn "无法删除 alist 目录，可能需要手动清理"
+fi
 
 # 修改 install.sh，移除 alist 相关逻辑
 if [ -f install.sh ]; then
-  sed -i '' '/alist/d' install.sh 2>/dev/null
+  sed -i '' '/alist/d' install.sh 2>/dev/null || warn "无法修改 install.sh 中的 alist 逻辑"
   chmod +x install.sh
 fi
 
 # 清理工作流（忽略删除失败）
-if [ -d .github/workflows ]; then
-  rm -rf .github/workflows 2>/dev/null || warn "无法删除 .github/workflows，可能需要手动清理"
+if [ -d .github ]; then
+  rm -rf .github 2>/dev/null || warn "无法删除 .github，可能需要手动清理"
 fi
 
-# 验证 sun-panel
+# 再次验证 sun-panel
 if [ ! -d sun-panel ] || [ ! -f sun-panel/install.sh ] || [ ! -f sun-panel/docker-compose.yml ]; then
-  error_exit "sun-panel 模块不完整（缺少 sun-panel 目录、install.sh 或 docker-compose.yml）"
+  error_exit "sun-panel 模块在修改后不完整，请检查脚本或仓库内容"
 fi
 
 # 检查端口冲突（假设 sun-panel 使用 8080）
@@ -111,7 +118,7 @@ fi
 rm -rf .git 2>/dev/null || warn "无法清理 .git，可能需要手动清理"
 
 # 提示完成
-echo "Fmie-work 项目已部署到 $WORK_DIR，仅保留 sun-panel 功能。"
+echo "Fmie-work 项目已部署到 $WORK_DIR，保留 sun-panel 功能。"
 if command -v docker >/dev/null 2>&1; then
   echo "检查 Docker 容器状态："
   docker ps
